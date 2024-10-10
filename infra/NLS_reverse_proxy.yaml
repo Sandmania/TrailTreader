@@ -1,0 +1,92 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Parameters:
+  NLSApiKey:
+    Type: String
+    Description: 'National Land Survey Api Key'
+Resources:
+  ApiGatewayRestApi:
+    Type: 'AWS::ApiGateway::RestApi'
+    Properties:
+      Name: 'ApiProxy'
+
+  ApiGatewayResource:
+    Type: 'AWS::ApiGateway::Resource'
+    Properties:
+      ParentId:
+        Fn::GetAtt:
+          - 'ApiGatewayRestApi'
+          - 'RootResourceId'
+      PathPart: 'proxy'
+      RestApiId:
+        Ref: 'ApiGatewayRestApi'
+
+  ApiGatewayMethod:
+    Type: 'AWS::ApiGateway::Method'
+    Properties:
+      AuthorizationType: 'NONE'
+      HttpMethod: 'GET'
+      ResourceId:
+        Ref: 'ApiGatewayResource'
+      RestApiId:
+        Ref: 'ApiGatewayRestApi'
+      Integration:
+        IntegrationHttpMethod: 'GET'
+        Type: 'HTTP_PROXY'
+        Uri:
+          Fn::Sub: 'https://avoin-karttakuva.maanmittauslaitos.fi/avoin/wmts/1.0.0/maastokartta/default/ETRS-TM35FIN/{z}/{y}/{x}.png?api-key=${NLSApiKey}'
+        RequestParameters:
+          integration.request.path.z: 'method.request.querystring.z'
+          integration.request.path.x: 'method.request.querystring.x'
+          integration.request.path.y: 'method.request.querystring.y'
+      RequestParameters:
+        method.request.querystring.z: true
+        method.request.querystring.x: true
+        method.request.querystring.y: true
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: "'*'"
+            method.response.header.Access-Control-Allow-Headers: "'*'"
+            method.response.header.Access-Control-Allow-Methods: "'GET'"
+    
+  ApiGatewayOptionsMethod:
+    Type: 'AWS::ApiGateway::Method'
+    Properties:
+      AuthorizationType: 'NONE'
+      HttpMethod: 'OPTIONS'
+      ResourceId:
+        Ref: 'ApiGatewayResource'
+      RestApiId:
+        Ref: 'ApiGatewayRestApi'
+      Integration:
+        Type: 'MOCK'
+        IntegrationResponses:
+          - StatusCode: 200
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+              method.response.header.Access-Control-Allow-Headers: "'*'"
+              method.response.header.Access-Control-Allow-Methods: "'GET,OPTIONS'"
+            ResponseTemplates:
+              application/json: '{}'
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: "'*'"
+            method.response.header.Access-Control-Allow-Headers: "'*'"
+            method.response.header.Access-Control-Allow-Methods: "'GET,OPTIONS'"
+
+  ApiGatewayDeployment:
+    Type: 'AWS::ApiGateway::Deployment'
+    Properties:
+      RestApiId:
+        Ref: 'ApiGatewayRestApi'
+      StageName: 'prod'
+    DependsOn: 
+      - 'ApiGatewayMethod'
+      - 'ApiGatewayOptionsMethod'
+
+Outputs:
+  ApiUrl:
+    Description: 'The URL of the API Gateway endpoint'
+    Value:
+      Fn::Sub: 'https://${ApiGatewayRestApi}.execute-api.${AWS::Region}.amazonaws.com/prod/proxy'
