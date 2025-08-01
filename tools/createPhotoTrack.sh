@@ -54,7 +54,7 @@ process_photo() {
     min_diff=""
 
     # Extract the timestamp from the photo and convert it to UTC
-    timestamp=$(date -u -j -f "%Y:%m:%d %H:%M:%S%z" "$(exiftool -b -DateTimeOriginal "$photo")+0353" "+%Y-%m-%dT%H:%M:%SZ")
+    timestamp=$(date -u -j -f "%Y:%m:%d %H:%M:%S%z" "$(exiftool -b -DateTimeOriginal "$photo")+0300" "+%Y-%m-%dT%H:%M:%SZ")
 
     # Find the closest trkpt for this photo
     if [ -d "$GPX_PATH" ]; then
@@ -102,10 +102,17 @@ process_photo() {
     previous_wpt_time=$wpt_time
 }
 
-# Process each photo
-for photo in "$PHOTO_DIR"/*.jpg; do
+found=false
+
+for photo in "$PHOTO_DIR"/*.{jpg,jpeg}; do
+    [ -e "$photo" ] || continue
+    found=true
     process_photo "$photo"
 done
+
+if [ "$found" = false ]; then
+    echo "Warning: No matching .jpg or .jpeg files found in $PHOTO_DIR"
+fi
 
 # Close after last photo
 echo "</div>]]></desc><sym>Photo</sym></wpt>" >> "$OUTPUT_FILE"
