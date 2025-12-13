@@ -36,7 +36,7 @@ Resources:
         IntegrationHttpMethod: 'GET'
         Type: 'HTTP_PROXY'
         Uri:
-          Fn::Sub: 'https://avoin-karttakuva.maanmittauslaitos.fi/avoin/wmts/1.0.0/maastokartta/default/ETRS-TM35FIN/{z}/{y}/{x}.png?api-key=${NLSApiKey}'
+          Fn::Sub: 'https://avoin-karttakuva.maanmittauslaitos.fi/avoin/wmts/1.0.0/maastokartta/default/WGS84_Pseudo-Mercator/{z}/{y}/{x}.png?api-key=${NLSApiKey}'
         RequestParameters:
           integration.request.path.z: 'method.request.querystring.z'
           integration.request.path.x: 'method.request.querystring.x'
