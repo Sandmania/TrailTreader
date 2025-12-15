@@ -6,6 +6,10 @@ Parameters:
   SLRApiKey:
     Type: String
     Description: 'Swedish Land Registry API Key'
+  SLRAuthorizationHeader:
+    Type: String
+    Description: 'Authorization header value to send to Swedish Land Registry'
+    NoEcho: true
 Resources:
   ApiGatewayRestApi:
     Type: 'AWS::ApiGateway::RestApi'
@@ -107,6 +111,8 @@ Resources:
           integration.request.path.z: 'method.request.querystring.z'
           integration.request.path.x: 'method.request.querystring.x'
           integration.request.path.y: 'method.request.querystring.y'
+          integration.request.header.Authorization:
+            Fn::Sub: "'${SLRAuthorizationHeader}'"
       RequestParameters:
         method.request.querystring.z: true
         method.request.querystring.x: true
