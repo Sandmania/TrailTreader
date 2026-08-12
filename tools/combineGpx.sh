@@ -29,8 +29,16 @@ do
         exit 1
     fi
 
-    # Extract trkseg content
-    track_segments+=$(xmlstarlet sel -N x="http://www.topografix.com/GPX/1/1" -t -c "//x:trkseg" "$file")
+    # Extract trkseg content, breaking it one trkpt per line so that later
+    # enrichment (see mergeSensorGpx.py) produces reviewable diffs instead of
+    # one multi-hundred-kilobyte line.
+    trkseg=$(xmlstarlet sel -N x="http://www.topografix.com/GPX/1/1" -t -c "//x:trkseg" "$file" | awk '{gsub("</trkpt>", "</trkpt>\n"); print}')
+
+    # Each source file becomes its own <trk> rather than another <trkseg> in a
+    # shared one. @tmcw/togeojson (5.6.2, still the version pinned by
+    # leaflet-elevation 2.6.0) misindexes per-segment <extensions> arrays, so a
+    # multi-trkseg track loses every segment's sensor values but one.
+    track_segments+="<trk><name>Leg $fileNro</name>$trkseg</trk>"
 
     # Extract the last trkpt within the trkseg and convert it to a wpt
     last_trkpt=$(xmlstarlet sel -N x="http://www.topografix.com/GPX/1/1" -t -c "(//x:trkseg//x:trkpt)[last()]" "$file")
@@ -58,15 +66,8 @@ done
 # Add all the wpt elements
 echo -e "$wpt_elements" >> $OUTPUT
 
-# Prepare to collect all track segments
-echo '<trk>' >> $OUTPUT
-echo '<name>Combined Track</name>' >> $OUTPUT
-
-# Add track segments
+# Add the tracks, one per source file
 echo -e "$track_segments" >> $OUTPUT
-
-# Close the trk element
-echo '</trk>' >> $OUTPUT
 
 # Close the gpx tag
 echo '</gpx>' >> $OUTPUT
