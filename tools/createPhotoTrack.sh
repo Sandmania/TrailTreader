@@ -15,8 +15,11 @@ OUTPUT_FILE="track_with_photos.gpx"
 
 # Function to calculate the absolute difference between two timestamps in seconds
 time_diff() {
-    local t1=$(date -jf "%Y-%m-%dT%H:%M:%SZ" "$1" +%s)
-    local t2=$(date -jf "%Y-%m-%dT%H:%M:%SZ" "$2" +%s)
+    # Strip trailing Z and optional fractional seconds (e.g. .000) so both formats parse
+    local a="${1%Z}"; a="${a%.*}"
+    local b="${2%Z}"; b="${b%.*}"
+    local t1=$(date -u -jf "%Y-%m-%dT%H:%M:%S" "$a" +%s)
+    local t2=$(date -u -jf "%Y-%m-%dT%H:%M:%S" "$b" +%s)
     echo $((t1 > t2 ? t1 - t2 : t2 - t1))
 }
 
@@ -54,8 +57,7 @@ process_photo() {
     min_diff=""
 
     # Extract the timestamp from the photo and convert it to UTC
-    timestamp=$(date -u -j -f "%Y:%m:%d %H:%M:%S%z" "$(exiftool -b -DateTimeOriginal "$photo")+0300" "+%Y-%m-%dT%H:%M:%SZ")
-
+    timestamp=$(date -u -j -f "%Y:%m:%d %H:%M:%S%z" "$(exiftool -b -DateTimeOriginal "$photo")+0009" "+%Y-%m-%dT%H:%M:%SZ")
     # Find the closest trkpt for this photo
     if [ -d "$GPX_PATH" ]; then
         for gpx_file in "$GPX_PATH"/*.gpx; do
@@ -76,13 +78,9 @@ process_photo() {
     # Extract the photo filename
     photo_filename=$(basename "$photo")
 
-    # Close previous wpt tag because:
-    # - previous_wpt_time is not empty, so this is not our first photo
-    # - previous_wpt_time and wpt_time differ, so this round should star
+    # Close previous wpt tag if needed
     if [ -n "$previous_wpt_time" ] && [ "$previous_wpt_time" != "$wpt_time" ]; then
         echo "</div>]]></desc><sym>Photo</sym></wpt>" >> "$OUTPUT_FILE"
-    else
-        echo "<a href=\"photos/$photo_filename\" target=\"_blank\"><img src=\"photos/$photo_filename\"></a>" >> "$OUTPUT_FILE"
     fi
 
     # Create the waypoint XML structure
@@ -91,10 +89,14 @@ process_photo() {
     <ele>$wpt_ele</ele>
     <desc>
         <![CDATA[
-        <div class=\"image-grid\"><a href=\"photos/$photo_filename\" target=\"_blank\"><img src=\"photos/$photo_filename\"></a>"
-
+        <div class=\"image-grid\">"
         # Append the waypoint to the output file
         echo "$waypoint" >>"$OUTPUT_FILE"
+    fi
+
+    # Always append the photo link inside the open waypoint
+    if [ -n "$wpt_lat" ] && [ -n "$wpt_lon" ] && [ -n "$wpt_ele" ]; then
+        echo "<a href=\"photos/$photo_filename\" target=\"_blank\"><img src=\"photos/$photo_filename\"></a>" >> "$OUTPUT_FILE"
     else
         echo "Warning: No valid trkpt found for photo $photo"
     fi
